@@ -17,9 +17,9 @@ var tqdata = null;
 
 function showData(data) {
     tqdata = data.result.minutely.precipitation_2h;
-    $("noti").text = data.result.minutely.short_plus ? data.result.minutely.short_plus : data.result.minutely.description;
+    $("desc").text = data.result.minutely.short_plus ? data.result.minutely.short_plus : data.result.minutely.description;
     $("updtime").text = getDateTimeFromTimestamp(parseInt(data.local_time))
-    $("axis").runtimeValue().invoke("layer.setNeedsDisplay");
+    $("graph").runtimeValue().invoke("layer.setNeedsDisplay");
 }
 
 function getData(lat, lng) {
@@ -118,8 +118,6 @@ function drawAxis(view, ctx) {
 
     let axis = new UIPath();
 
-    
-
     axis.moveToPoint(originX, originY-scaleY * thres1);
     axis.addLineToPoint(originX + data_width, originY-scaleY * thres1);
     axis.moveToPoint(originX, originY-scaleY * thres2);
@@ -163,60 +161,7 @@ function drawData(ctx, data, originX, originY, scaleX, scaleY) {
     ctx.restoreGState()
 }
 
-var graph = {
-    type: "canvas",
-    layout: function(make, view) {
-        make.top.left.right.bottom.inset(0);
-    },
-    props: {
-        id: "axis"
-    },
-    events: {
-        draw: drawAxis
-    }
-}
-
-var description = {
-    type: "label",
-    props: {
-        id: "noti",
-        autoFontSize: true,
-        align: $align.right,
-        text: ""
-    },
-    layout: function(make, view) {
-        make.top.equalTo(view.super).inset(10);
-        make.left.inset(20);
-        make.right.inset(15);
-    },
-    events: {
-        tapped(sender) {
-            update();
-        }
-    }
-}
-
-var update_time = {
-    type: "label",
-    props: {
-        id: "updtime",
-        align: $align.right,
-        font: $font(10),
-        text: ""
-    },
-    layout: function(make, view) {
-        make.top.equalTo($("noti").bottom).offset(5);
-        make.left.inset(20);
-        make.right.inset(15);
-    },
-    events: {
-        tapped(sender) {
-            update();
-        }
-    }
-}
-
-function generateLabel() {
+function generateTickLabel() {
     var axis_labels = [];
 
     for(var i=1; i<num_ticks; i++) {
@@ -238,22 +183,99 @@ function generateLabel() {
     return axis_labels;
 }
 
-var axis_tick_bar = {
-    type: "view",
-    props: {
-        id: "axis_tick_bar",
-        hidden: true
+var UI = {
+    graph: {
+        type: "canvas",
+        layout: function(make, view) {
+            make.top.left.right.bottom.inset(0);
+        },
+        props: {
+            id: "graph"
+        },
+        events: {
+            draw: drawAxis
+        }
     },
-    views: generateLabel(),
-    layout: function(make, view) {
-        make.left.right.inset(0);
-        make.bottom.inset(5);
-        make.height.equalTo(10);
+    desc: {
+        type: "label",
+        props: {
+            id: "desc",
+            autoFontSize: true,
+            align: $align.right,
+            text: ""
+        },
+        layout: function(make, view) {
+            make.top.equalTo(view.super).inset(10);
+            make.left.inset(20);
+            make.right.inset(15);
+        },
+        events: {
+            tapped(sender) {
+                update();
+            }
+        }
+    },
+    updtime: {
+        type: "label",
+        props: {
+            id: "updtime",
+            align: $align.right,
+            font: $font(10),
+            text: ""
+        },
+        layout: function(make, view) {
+            make.top.equalTo($("desc").bottom).offset(5);
+            make.left.inset(20);
+            make.right.inset(15);
+        },
+        events: {
+            tapped(sender) {
+                update();
+            }
+        }
+    },
+    axis_tick_bar: {
+        type: "view",
+        props: {
+            id: "axis_tick_bar",
+            hidden: true
+        },
+        views: generateTickLabel(),
+        layout: function(make, view) {
+            make.left.right.inset(0);
+            make.bottom.inset(5);
+            make.height.equalTo(10);
+        }
+    },
+    updver_btn: {
+        type: "canvas",
+        props: {
+            id: "updver_btn",
+            hidden: true
+        },
+        layout: function(make, view) {
+            make.left.top.equalTo(view.super);
+            make.width.height.equalTo(30);
+        },
+        events: {
+            draw(view, ctx) {
+                ctx.saveGState();
+                ctx.fillColor = $color("blue");
+                ctx.setShadow($size(1, 1), 3.3, $color("#999"));
+                ctx.addArc(15, 15, 5, 0, 3.14, true);
+                ctx.addArc(15, 15, 5, 3.14, 6.28, true);
+                ctx.fillPath();
+                ctx.restoreGState();
+            },
+            tapped(sender) {
+                $app.openURL("jsbox://run?name=" + encodeURIComponent($addin.current.name));
+            }
+        }
     }
-}
+};
 
 function update() {
-    $("noti").text = "Loading..."
+    $("desc").text = "Loading..."
 
     // $location.select({
     $location.fetch({
@@ -271,7 +293,6 @@ function generateTestData() {
                 precipitation_2h: [],
                 description: "雨渐渐变大"
             },
-
         },
         server_time: Math.floor(Date.now() / 1000).toString(),
         local_time: Date.now()
@@ -285,49 +306,53 @@ function generateTestData() {
     return data;
 }
 
-var use_height = app_height;
-if($app.env == $env.today) {
-    use_height = widget_height;
+function main() {
+    
+    updateVersion();
+
+    var use_height = app_height;
+    if($app.env == $env.today) {
+        use_height = widget_height;
+    }
+    
+    $ui.render({
+        props: {
+            title: "2h降雨",
+            height: use_height
+        },
+        views: [
+            {
+                type: "view",
+                props: {
+                    id: "mainview",
+                },
+                views: [
+                    UI.axis_tick_bar,
+                    UI.graph,
+                    UI.desc,
+                    UI.updtime
+                ],
+                layout: function(make, view) {
+                    make.top.left.right.inset(0);
+                    make.height.equalTo(use_height);
+                }
+            }, UI.updver_btn
+        ]
+    });
+
+    var cached_data = $cache.get("precipitation_2h");
+    if(cached_data) {
+        console.log("Showing cached data");
+        console.log(cached_data);
+        showData(cached_data);
+    }
+    if(cached_data === undefined || cached_data.local_time === undefined || Date.now() - parseInt(cached_data.local_time) > 120 * 1000) {
+        console.log("Updating data");
+        update();
+    }
 }
 
-$ui.render({
-    props: {
-        title: "2h降雨",
-        height: use_height
-    },
-    views: [
-        {
-            type: "view",
-            props: {
-                id: "mainview",
-            },
-            views: [
-                axis_tick_bar,
-                graph,
-                description,
-                update_time
-            ],
-            layout: function(make, view) {
-                make.top.left.right.inset(0);
-                make.height.equalTo(use_height);
-            }
-        }
-    ]
-});
-
-var cached_data = $cache.get("precipitation_2h");
-cached_data = generateTestData();
-if(cached_data) {
-    console.log("Showing cached data");
-    console.log(cached_data);
-    showData(cached_data);
-}
-if(cached_data === undefined || cached_data.local_time === undefined || Date.now() - parseInt(cached_data.local_time) > 120 * 1000) {
-    console.log("Updating data");
-    //update();
-}
-
-async function updataVersion() {
+async function updateVersion() {
     let UPDATE_FILE = "update.json";
 
     var resp = await $http.get("https://raw.githubusercontent.com/tete1030/precipcurve_jsbox/update/" + UPDATE_FILE);
@@ -336,34 +361,38 @@ async function updataVersion() {
         return;
     }
     var data = resp.data;
-    if (data.version > VERSION) {
-        var update_choice = await $ui.alert({
-            title: "检测到新的版本！V" + data.version,
-            message: "是否更新?\n更新完成后自行启动新版本\n\n" + data.info,
-            actions: [{
-              title: "更新",
-            }, {
-              title: "取消"
-            }]
-        });
+    if (parseFloat(data.version) > VERSION) {
+        if($app.env == $env.today) {
+            $("updver_btn").hidden = false;
+            return;
+        }
+        var update_choice = (await $ui.alert({
+                title: "检测到新的版本！V" + data.version,
+                message: "是否更新?\n更新完成后自行启动新版本\n\n" + data.info,
+                actions: [{
+                title: "更新",
+                }, {
+                title: "取消"
+                }]
+        })).index;
 
-        if(update_choice.index == 0) {
+        if(update_choice == 0) {
+            $ui.loading(true);
+            $ui.toast("下载中...", 1);
             var code_resp = await $http.get(data.update_url);
-            if(resp.error || resp.response.statusCode != pre200) {
+            $ui.toast("", 0.001);
+            $ui.loading(false);
+            if(resp.error || resp.response.statusCode != 200) {
                 console.error(resp);
                 return;
             }
-            if(code_resp.response.statusCode == 200) {
-                var code_data = code_resp.data;
-                $addin.save({
-                    name: $addin.current,
-                    data: code_data
-                })
-            }
-            $addin.run($addin.current);
-            $app.close();
+            var code_data = code_resp.data;
+            $addin.save({
+                name: $addin.current.name,
+                data: $data({string: code_data})
+            });
+            $addin.run($addin.current.name);
         }
     }
 }
-
-updataVersion();
+main();
