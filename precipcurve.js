@@ -1,10 +1,10 @@
 'use strict';
 
-let VERSION = 1.0;
+let VERSION = 1.1;
 
 let num_ticks = 4;
 let axis_x_max = 120;
-let axis_y_max = 0.81;
+let axis_y_max = 0.5;
 let widget_height = 150;
 let app_height = 220;
 
@@ -108,8 +108,8 @@ function drawAxis(view, ctx) {
     var scaleY = data_height / axis_y_max;
     var scaleX = data_width / axis_x_max;
 
-    var thres1 = 0.27;
-    var thres2 = 0.54;
+    var thres1 = axis_y_max / 3;
+    var thres2 = axis_y_max * 2 / 3;
 
     ctx.saveGState()
     ctx.strokeColor = $color("gray");
